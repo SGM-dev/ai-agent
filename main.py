@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from google import genai
+import argparse
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -10,8 +11,11 @@ if api_key is None:
 
 client = genai.Client(api_key=api_key)
 
+parser = argparse.ArgumentParser(description="ChatBot")
+parser.add_argument("user_prompt", type=str, help="User prompt")
+args = parser.parse_args()
 
-user_prompt = "Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum."
+user_prompt = args.user_prompt
 
 print(f"User prompt: {user_prompt}")
 
