@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from dotenv import load_dotenv
 from google import genai
@@ -28,20 +29,31 @@ def main():
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
 
-    generate_content(client, messages, args.verbose)
+    for i in range(20):
+        if generate_content(client, messages, args.verbose):
+            break
+    else:
+        print("Maximum number of iterations reached without a final response.")
+        sys.exit(1)
 
 
 def generate_content(client, messages, verbose):
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         contents=messages,
         config=types.GenerateContentConfig(
             tools=[available_functions], system_instruction=system_prompt
         ),
     )
 
+    if not response.candidates:
+        raise RuntimeError("Gemini API Response appears to be malformed")
+
     if not response.usage_metadata:
         raise RuntimeError("Gemini API Response appears to be malformed")
+
+    for candidate in response.candidates:
+        messages.append(candidate.content)
 
     if verbose:
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
@@ -50,11 +62,11 @@ def generate_content(client, messages, verbose):
     if not response.function_calls:
         print("Response:")
         print(f"{response.text}")
+        return True
 
     function_responses = []
 
     for function_call in response.function_calls:
-        # print(f"Calling function: {function_call.name}({function_call.args})")
         result = call_function(function_call, verbose)
 
         if (
@@ -68,6 +80,9 @@ def generate_content(client, messages, verbose):
             print(f"-> {result.parts[0].function_response.response}")
 
         function_responses.append(result.parts[0])
+
+    messages.append(types.Content(role="user", parts=function_responses))
+    return False
 
 
 if __name__ == "__main__":
